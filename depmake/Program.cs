@@ -14,7 +14,7 @@ namespace depmake
 		static string srcfile = "Depfile";
 		static string dstfile = "Makefile.new";
 
-		public static void Main (string[] args)
+		public static int Main (string[] args)
 		{
 			switch (args.Length) {
 			case 2:
@@ -175,6 +175,7 @@ namespace depmake
 					if (movedIncludeFolder.ContainsKey (file)) {
 						specialCommands = "-iquote" + movedIncludeFolder [file];
 					}
+					specialCommands += "-iquoteobj ";
 
 					string dependencies = obj + ": " +file + "\n";
 					if(File.Exists(file)) {
@@ -183,6 +184,9 @@ namespace depmake
 							RedirectStandardOutput = true,
 						});
 						proc.WaitForExit ();
+						if (proc.ExitCode != 0) {
+							return proc.ExitCode;
+						}
 
 						dependencies = proc.StandardOutput.ReadToEnd ();
 						dependencies = dependencies.Replace (Path.GetFileNameWithoutExtension(file) + ".o", obj);
@@ -201,16 +205,20 @@ namespace depmake
 
 					string specialCommands = "";
 					if (movedIncludeFolder.ContainsKey (file)) {
-						specialCommands = "-iquote" + movedIncludeFolder [file];
+						specialCommands = "-iquote" + movedIncludeFolder [file] + " ";
 					}
+					specialCommands += "-iquoteobj ";
 
 					string dependencies = obj + ": " + file + "\n";
 					if(File.Exists(file)) {
-						Process proc = Process.Start (new ProcessStartInfo ("g++", specialCommands + " -MM -Iinclude " + file) {
+						Process proc = Process.Start (new ProcessStartInfo ("g++", specialCommands + "-MM -Iinclude " + file) {
 							UseShellExecute = false,
 							RedirectStandardOutput = true,
 						});
 						proc.WaitForExit ();
+						if (proc.ExitCode != 0) {
+							return proc.ExitCode;
+						}
 
 						dependencies = proc.StandardOutput.ReadToEnd ();
 						dependencies = dependencies.Replace (Path.GetFileNameWithoutExtension(file) + ".o", obj);
@@ -255,6 +263,8 @@ namespace depmake
 					writer.Write (appendix);
 				}
 			}
+
+			return 0;
 		}
 
 		private static string[] GetFiles(string sourceFolder, string filters, System.IO.SearchOption searchOption)
