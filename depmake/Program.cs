@@ -163,9 +163,22 @@ namespace depmake
 				writer.WriteLine ("\t$(RM) {0}", string.Join (" ", articfacts));
 				writer.WriteLine ();
 
-				writer.WriteLine ("{0}: {1}", depfile.Artifact, string.Join(" ", objs));
-				writer.WriteLine ("\t$(LD) $(FLAGS) $(LDFLAGS) -o $@ {1}", depfile.Artifact, string.Join(" ", objs));
-				writer.WriteLine ();
+				// Creating linker call
+				{
+					var objects = new List<string> ();
+					foreach (var file in objs.Concat(depfile.ExternalObjects)) {
+						if (file.Contains("|")) {
+							var t = file.Split ('|');
+							objects.AddRange(Directory.GetFiles (t [0], t [1]));
+						} else {
+							objects.Add (file);
+						}
+					}
+
+					writer.WriteLine ("{0}: {1}", depfile.Artifact, string.Join (" ", objects));
+					writer.WriteLine ("\t$(LD) $(FLAGS) $(LDFLAGS) -o $@ {1}", depfile.Artifact, string.Join (" ", objects));
+					writer.WriteLine ();
+				}
 
 				// Create c section
 				foreach (var file in cfiles) {
@@ -178,7 +191,7 @@ namespace depmake
 
 					string dependencies = obj + ": " +file + "\n";
 					if(File.Exists(file)) {
-						Process proc = Process.Start (new ProcessStartInfo ("gcc", specialCommands + " -MM -Iinclude " + file) {
+						Process proc = Process.Start (new ProcessStartInfo ("gcc", specialCommands + " -std=c11 -MM -Iinclude " + file) {
 							UseShellExecute = false,
 							RedirectStandardOutput = true,
 						});
@@ -206,7 +219,7 @@ namespace depmake
 
 					string dependencies = obj + ": " + file + "\n";
 					if(File.Exists(file)) {
-						Process proc = Process.Start (new ProcessStartInfo ("g++", specialCommands + " -MM -Iinclude " + file) {
+						Process proc = Process.Start (new ProcessStartInfo ("g++", specialCommands + " -std=c++11 -MM -Iinclude " + file) {
 							UseShellExecute = false,
 							RedirectStandardOutput = true,
 						});
@@ -281,7 +294,8 @@ namespace depmake
 			this.TempDir = "obj";
 			this.SourceDir = new List<string> ();
 			this.Files = new List<string> ();
-			this.AdditionalObjects = new List<string> ();		
+			this.AdditionalObjects = new List<string> ();
+			this.ExternalObjects = new List<string> ();
 		}
 
 		public bool LexUseCpp { get; set; }
@@ -323,5 +337,7 @@ namespace depmake
 		public IList<string> Files { get; private set; }
 
 		public IList<string> AdditionalObjects { get; private set; }
+
+		public IList<string> ExternalObjects { get; private set; }
 	}
 }
